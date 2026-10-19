@@ -1,0 +1,21 @@
+{
+  "name": "dsh-codex-agy-plugin",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DeepSeek Harness plugin: Codex and AGY subagent backends plus a codex_imagegen tool, mounted as global tools for every agent preset.",
+  "exports": {
+    "./codex": "./codex.mjs",
+    "./agy": "./agy.mjs",
+    "./imagegen": "./imagegen.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "meta": {
+    "title": "Codex + AGY Tools",
+    "description": "Adds global subagent_codex, subagent_agy and codex_imagegen tools to every agent preset."
+  }
+}

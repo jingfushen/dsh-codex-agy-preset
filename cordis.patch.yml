@@ -1,0 +1,78 @@
+# dsh-codex-agy-plugin — bundle patch (PLUGIN, not a preset)
+#
+# This layer inserts Host-plane rows only. It registers two out-of-process
+# subagent providers and mounts three model-facing tools in the **global tool
+# layer**, so every agent preset (mode) sees them on its next request — no new
+# preset is declared and no preset is edited.
+#
+# Shape follows the shipped @deepseek-ai/dsh-experimental-ralph-bundle: a
+# top-level host group whose tool rows land in the global tool layer
+# (@deepseek-ai/dsh-tools: "注册一个工具就足以让它可见").
+#
+# Provider names are unique per process. Never register `codex` / `agy` again
+# from another bundle or from the profile patch: the second registration fails
+# and takes the mount down. Also avoid enabling a preset that mounts the same
+# `toolName` (`subagent_codex` / `subagent_agy` / `codex_imagegen`) while this
+# plugin is on — the model-facing names would be duplicated.
+
+- insert:
+    # ── Host plane: out-of-process subagent backends ────────────────────────
+    #
+    # `model` + `reasoningEffort` are per-child settings: model goes out as the
+    # thread/start model, reasoningEffort is this plugin's local shim (the
+    # backend package has no such field) and becomes
+    # `-c model_reasoning_effort="<value>"` on the child argv. Both are scoped
+    # to the child process; ~/.codex/config.toml is untouched.
+    - id: subagent-codex-backend
+      name: 'dsh-codex-agy-plugin/codex'
+      config:
+        model: gpt-5.6-sol
+        reasoningEffort: max
+        env: {}
+        disposeGraceMs: 3000
+
+    # agy is driven through the Antigravity CLI's print mode. Every child is
+    # forced through this machine's system proxy (127.0.0.1:12450) for its
+    # whole run, because the subprocess seam starts children from a scrubbed
+    # environment; NO_PROXY is emptied so nothing bypasses it. `verifyProxy`
+    # probes the port before spawning, because agy reports an unreachable
+    # proxy as its generic "Eligibility check failed".
+    - id: subagent-agy-backend
+      name: 'dsh-codex-agy-plugin/agy'
+      config:
+        env:
+          HTTP_PROXY: http://127.0.0.1:12450
+          HTTPS_PROXY: http://127.0.0.1:12450
+          ALL_PROXY: http://127.0.0.1:12450
+          NO_PROXY: ''
+
+    # ── Global tool layer: visible to every agent preset ────────────────────
+    - id: codex-agy-tools
+      name: cordis:group
+      group: true
+      config:
+        # One-shot delegation to the Codex CLI. External backends execute once
+        # and report back through a completion notice; `maxDepth:
+        # provider-managed` leaves the recursion budget to the provider.
+        - id: codex-agy-tool-subagent-codex
+          name: '@deepseek-ai/dsh-tool-subagent'
+          config:
+            provider: codex
+            toolName: subagent_codex
+            maxDepth: provider-managed
+
+        # One-shot delegation to the Antigravity CLI (print mode).
+        - id: codex-agy-tool-subagent-agy
+          name: '@deepseek-ai/dsh-tool-subagent'
+          config:
+            provider: agy
+            toolName: subagent_agy
+            maxDepth: provider-managed
+
+        # GPT Image through Codex's own imagegen skill. Set `model` /
+        # `reasoningEffort` to null to fall back to the Codex CLI defaults.
+        - id: codex-agy-tool-codex-imagegen
+          name: 'dsh-codex-agy-plugin/imagegen'
+          config:
+            model: gpt-6-astra
+            reasoningEffort: xhigh

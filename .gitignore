@@ -1,0 +1,17 @@
+# 编辑器 / 系统
+.DS_Store
+*.swp
+
+# 本地备份文件
+*.bak-*
+*.bak
+
+# 依赖与构建产物
+node_modules/
+dist/
+
+# 出图测试产物
+*.png
+*.jpg
+*.jpeg
+*.webp
